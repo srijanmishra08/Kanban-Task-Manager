@@ -1,0 +1,2174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kanban Task Manager — Reshuffle</title>
+    <meta name="description" content="Freelancer-centric Kanban task manager. Manage client projects, track budgets, and organize your workflow with drag-and-drop boards.">
+    <style>
+        /* ===== RESET & VARIABLES ===== */
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --black: #000000;
+            --black-soft: #0A0A0A;
+            --black-card: #111111;
+            --black-hover: #1A1A1A;
+            --border: #222222;
+            --border-light: #333333;
+            --orange: #FF6B35;
+            --orange-light: #FF8C5A;
+            --orange-dim: rgba(255, 107, 53, 0.15);
+            --orange-glow: rgba(255, 107, 53, 0.3);
+            --green: #34C759;
+            --green-dim: rgba(52, 199, 89, 0.15);
+            --blue: #5AC8FA;
+            --blue-dim: rgba(90, 200, 250, 0.15);
+            --yellow: #FFD60A;
+            --yellow-dim: rgba(255, 214, 10, 0.15);
+            --red: #FF453A;
+            --red-dim: rgba(255, 69, 58, 0.15);
+            --purple: #BF5AF2;
+            --purple-dim: rgba(191, 90, 242, 0.15);
+            --text-primary: #FFFFFF;
+            --text-secondary: #AAAAAA;
+            --text-muted: #666666;
+            --font: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, sans-serif;
+            --radius: 12px;
+            --radius-sm: 8px;
+            --transition: 0.2s ease;
+            --sidebar-width: 280px;
+        }
+
+        html { font-size: 16px; }
+        body {
+            font-family: var(--font);
+            background: var(--black);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        a { color: var(--orange); text-decoration: none; }
+        a:hover { color: var(--orange-light); }
+
+        button {
+            font-family: var(--font);
+            cursor: pointer;
+            border: none;
+            outline: none;
+        }
+
+        input, textarea, select {
+            font-family: var(--font);
+            outline: none;
+        }
+
+        /* ===== SCROLLBAR ===== */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--border-light); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+        /* ===== LAYOUT ===== */
+        .app { display: flex; min-height: 100vh; }
+
+        /* ===== SIDEBAR ===== */
+        .sidebar {
+            width: var(--sidebar-width);
+            background: var(--black-soft);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 100vh;
+            z-index: 100;
+            transition: transform 0.3s ease;
+        }
+
+        .sidebar-header {
+            padding: 20px 20px 16px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .sidebar-brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            text-decoration: none;
+        }
+
+        .sidebar-brand-icon {
+            width: 32px;
+            height: 32px;
+            background: var(--orange);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 14px;
+            color: white;
+        }
+
+        .sidebar-brand-text {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .sidebar-brand-text span {
+            color: var(--text-muted);
+            font-weight: 400;
+            font-size: 12px;
+            display: block;
+            margin-top: -2px;
+        }
+
+        .sidebar-nav {
+            flex: 1;
+            overflow-y: auto;
+            padding: 12px 0;
+        }
+
+        .sidebar-section-title {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+            padding: 16px 20px 8px;
+        }
+
+        .sidebar-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 20px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all var(--transition);
+            border-left: 3px solid transparent;
+            font-size: 14px;
+        }
+
+        .sidebar-item:hover {
+            background: var(--black-hover);
+            color: var(--text-primary);
+        }
+
+        .sidebar-item.active {
+            background: var(--orange-dim);
+            color: var(--orange);
+            border-left-color: var(--orange);
+        }
+
+        .sidebar-item svg {
+            width: 18px;
+            height: 18px;
+            flex-shrink: 0;
+            opacity: 0.7;
+        }
+
+        .sidebar-item.active svg { opacity: 1; }
+
+        .sidebar-item .badge {
+            margin-left: auto;
+            background: var(--border-light);
+            color: var(--text-secondary);
+            font-size: 11px;
+            padding: 2px 7px;
+            border-radius: 10px;
+            font-weight: 500;
+        }
+
+        .sidebar-item.active .badge {
+            background: var(--orange-dim);
+            color: var(--orange);
+        }
+
+        .sidebar-project-item {
+            padding: 8px 20px 8px 28px;
+            font-size: 13px;
+        }
+
+        .sidebar-project-color {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        .sidebar-footer {
+            padding: 16px 20px;
+            border-top: 1px solid var(--border);
+        }
+
+        .sidebar-footer a {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--text-muted);
+            font-size: 13px;
+            transition: color var(--transition);
+        }
+
+        .sidebar-footer a:hover { color: var(--orange); }
+
+        /* ===== MAIN ===== */
+        .main {
+            flex: 1;
+            margin-left: var(--sidebar-width);
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+
+        /* ===== TOP BAR ===== */
+        .topbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px 28px;
+            border-bottom: 1px solid var(--border);
+            background: var(--black-soft);
+            position: sticky;
+            top: 0;
+            z-index: 50;
+        }
+
+        .topbar-left {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .topbar-title {
+            font-size: 20px;
+            font-weight: 600;
+        }
+
+        .topbar-breadcrumb {
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+
+        .topbar-breadcrumb a { color: var(--text-secondary); }
+
+        .topbar-right {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .hamburger {
+            display: none;
+            background: none;
+            color: var(--text-primary);
+            padding: 8px;
+        }
+
+        .hamburger svg { width: 24px; height: 24px; }
+
+        /* ===== BUTTONS ===== */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 16px;
+            border-radius: var(--radius-sm);
+            font-size: 13px;
+            font-weight: 500;
+            transition: all var(--transition);
+            white-space: nowrap;
+        }
+
+        .btn svg { width: 16px; height: 16px; }
+
+        .btn-primary {
+            background: var(--orange);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: var(--orange-light);
+            box-shadow: 0 0 20px var(--orange-glow);
+        }
+
+        .btn-secondary {
+            background: var(--border);
+            color: var(--text-primary);
+        }
+
+        .btn-secondary:hover { background: var(--border-light); }
+
+        .btn-ghost {
+            background: transparent;
+            color: var(--text-secondary);
+        }
+
+        .btn-ghost:hover {
+            background: var(--black-hover);
+            color: var(--text-primary);
+        }
+
+        .btn-danger {
+            background: var(--red-dim);
+            color: var(--red);
+        }
+
+        .btn-danger:hover { background: rgba(255, 69, 58, 0.25); }
+
+        .btn-sm {
+            padding: 6px 10px;
+            font-size: 12px;
+        }
+
+        .btn-icon {
+            padding: 8px;
+            border-radius: var(--radius-sm);
+        }
+
+        /* ===== CONTENT AREA ===== */
+        .content { flex: 1; padding: 28px; }
+
+        /* ===== DASHBOARD ===== */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 28px;
+        }
+
+        .stat-card {
+            background: var(--black-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 20px;
+        }
+
+        .stat-card-label {
+            font-size: 12px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 8px;
+        }
+
+        .stat-card-value {
+            font-size: 28px;
+            font-weight: 700;
+        }
+
+        .stat-card-sub {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
+
+        .stat-orange .stat-card-value { color: var(--orange); }
+        .stat-green .stat-card-value { color: var(--green); }
+        .stat-blue .stat-card-value { color: var(--blue); }
+        .stat-yellow .stat-card-value { color: var(--yellow); }
+
+        /* ===== PROJECT CARDS GRID ===== */
+        .projects-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 20px;
+        }
+
+        .project-card {
+            background: var(--black-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 24px;
+            cursor: pointer;
+            transition: all var(--transition);
+            position: relative;
+        }
+
+        .project-card:hover {
+            border-color: var(--border-light);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px rgba(0,0,0,0.4);
+        }
+
+        .project-card-header {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            margin-bottom: 12px;
+        }
+
+        .project-card-color {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-top: 6px;
+        }
+
+        .project-card-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .project-card-client {
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        .project-card-desc {
+            font-size: 13px;
+            color: var(--text-muted);
+            margin-bottom: 16px;
+            line-height: 1.5;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .project-card-meta {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+
+        .project-card-meta-item {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        .project-card-meta-item strong {
+            color: var(--text-secondary);
+            display: block;
+            margin-top: 2px;
+        }
+
+        .project-card-progress { margin-bottom: 12px; }
+
+        .progress-bar-bg {
+            height: 4px;
+            background: var(--border);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .progress-bar-fill {
+            height: 100%;
+            background: var(--orange);
+            border-radius: 2px;
+            transition: width 0.4s ease;
+        }
+
+        .progress-bar-fill.complete { background: var(--green); }
+
+        .project-card-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .project-card-tasks {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        .project-card-budget {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--green);
+        }
+
+        .project-card-actions {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            opacity: 0;
+            transition: opacity var(--transition);
+        }
+
+        .project-card:hover .project-card-actions { opacity: 1; }
+
+        .project-card-new {
+            border-style: dashed;
+            border-color: var(--border-light);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 240px;
+            color: var(--text-muted);
+            gap: 12px;
+        }
+
+        .project-card-new:hover {
+            border-color: var(--orange);
+            color: var(--orange);
+        }
+
+        .project-card-new svg { width: 32px; height: 32px; }
+
+        /* ===== KANBAN BOARD ===== */
+        .board {
+            display: flex;
+            gap: 16px;
+            overflow-x: auto;
+            padding-bottom: 20px;
+            min-height: calc(100vh - 180px);
+            align-items: flex-start;
+        }
+
+        .board-column {
+            min-width: 290px;
+            max-width: 290px;
+            background: var(--black-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            display: flex;
+            flex-direction: column;
+            max-height: calc(100vh - 200px);
+        }
+
+        .column-header {
+            padding: 14px 16px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-shrink: 0;
+        }
+
+        .column-header-left {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .column-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+
+        .column-title {
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .column-count {
+            font-size: 11px;
+            color: var(--text-muted);
+            background: var(--border);
+            padding: 1px 6px;
+            border-radius: 8px;
+        }
+
+        .column-add-btn {
+            background: none;
+            color: var(--text-muted);
+            padding: 4px;
+            border-radius: 4px;
+            transition: all var(--transition);
+        }
+
+        .column-add-btn:hover {
+            background: var(--border);
+            color: var(--text-primary);
+        }
+
+        .column-add-btn svg { width: 16px; height: 16px; }
+
+        .column-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 8px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .column-body.drag-over {
+            background: var(--orange-dim);
+        }
+
+        /* ===== TASK CARDS ===== */
+        .task-card {
+            background: var(--black-soft);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: 12px;
+            cursor: grab;
+            transition: all var(--transition);
+            user-select: none;
+        }
+
+        .task-card:hover {
+            border-color: var(--border-light);
+        }
+
+        .task-card.dragging {
+            opacity: 0.5;
+            cursor: grabbing;
+            transform: rotate(2deg);
+        }
+
+        .task-card-title {
+            font-size: 13px;
+            font-weight: 500;
+            margin-bottom: 6px;
+            line-height: 1.4;
+        }
+
+        .task-card-desc {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-bottom: 10px;
+            line-height: 1.4;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .task-card-footer {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+
+        .task-card-tags {
+            display: flex;
+            gap: 4px;
+            flex-wrap: wrap;
+        }
+
+        .tag {
+            font-size: 10px;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 500;
+        }
+
+        .tag-urgent { background: var(--red-dim); color: var(--red); }
+        .tag-high { background: var(--orange-dim); color: var(--orange); }
+        .tag-medium { background: var(--yellow-dim); color: var(--yellow); }
+        .tag-low { background: var(--blue-dim); color: var(--blue); }
+
+        .task-card-deadline {
+            font-size: 11px;
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .task-card-deadline svg { width: 12px; height: 12px; }
+        .task-card-deadline.overdue { color: var(--red); }
+
+        .task-card-budget {
+            font-size: 11px;
+            color: var(--green);
+            font-weight: 500;
+        }
+
+        /* ===== MODAL ===== */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(4px);
+            z-index: 200;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.2s ease;
+        }
+
+        .modal-overlay.visible {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .modal {
+            background: var(--black-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            width: 100%;
+            max-width: 520px;
+            max-height: 90vh;
+            overflow-y: auto;
+            transform: scale(0.95) translateY(10px);
+            transition: transform 0.2s ease;
+        }
+
+        .modal-overlay.visible .modal {
+            transform: scale(1) translateY(0);
+        }
+
+        .modal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 20px 24px 16px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .modal-title {
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .modal-close {
+            background: none;
+            color: var(--text-muted);
+            padding: 4px;
+        }
+
+        .modal-close:hover { color: var(--text-primary); }
+        .modal-close svg { width: 20px; height: 20px; }
+
+        .modal-body { padding: 20px 24px; }
+
+        .form-group { margin-bottom: 16px; }
+
+        .form-label {
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            display: block;
+            margin-bottom: 6px;
+        }
+
+        .form-input,
+        .form-select,
+        .form-textarea {
+            width: 100%;
+            padding: 10px 12px;
+            background: var(--black);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            color: var(--text-primary);
+            font-size: 14px;
+            transition: border-color var(--transition);
+        }
+
+        .form-input:focus,
+        .form-select:focus,
+        .form-textarea:focus {
+            border-color: var(--orange);
+        }
+
+        .form-textarea { resize: vertical; min-height: 80px; }
+
+        .form-select {
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%23666' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10l-5 5z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 12px center;
+            padding-right: 32px;
+        }
+
+        .form-select option {
+            background: var(--black-card);
+            color: var(--text-primary);
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .modal-footer {
+            padding: 16px 24px 20px;
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+        }
+
+        /* ===== EMPTY STATE ===== */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-muted);
+        }
+
+        .empty-state svg {
+            width: 48px;
+            height: 48px;
+            margin-bottom: 16px;
+            opacity: 0.5;
+        }
+
+        .empty-state h3 {
+            font-size: 16px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+        }
+
+        .empty-state p {
+            font-size: 13px;
+            margin-bottom: 20px;
+        }
+
+        /* ===== CONTEXT MENU ===== */
+        .context-menu {
+            position: fixed;
+            background: var(--black-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: 4px;
+            z-index: 300;
+            min-width: 160px;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.5);
+            display: none;
+        }
+
+        .context-menu.visible { display: block; }
+
+        .context-menu-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            font-size: 13px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            border-radius: 4px;
+            transition: all var(--transition);
+        }
+
+        .context-menu-item:hover {
+            background: var(--black-hover);
+            color: var(--text-primary);
+        }
+
+        .context-menu-item.danger { color: var(--red); }
+        .context-menu-item.danger:hover { background: var(--red-dim); }
+
+        .context-menu-item svg { width: 14px; height: 14px; }
+
+        .context-menu-divider {
+            height: 1px;
+            background: var(--border);
+            margin: 4px 0;
+        }
+
+        /* ===== TOAST ===== */
+        .toast-container {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 400;
+            display: flex;
+            flex-direction: column-reverse;
+            gap: 8px;
+        }
+
+        .toast {
+            background: var(--black-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: 12px 16px;
+            font-size: 13px;
+            color: var(--text-primary);
+            box-shadow: 0 8px 30px rgba(0,0,0,0.4);
+            animation: toast-in 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .toast.success { border-left: 3px solid var(--green); }
+        .toast.error { border-left: 3px solid var(--red); }
+
+        @keyframes toast-in {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* ===== CONFIRM DIALOG ===== */
+        .confirm-body { text-align: center; padding: 30px 24px; }
+        .confirm-body p { color: var(--text-secondary); font-size: 14px; margin-bottom: 24px; }
+        .confirm-body .btn-row { display: flex; gap: 8px; justify-content: center; }
+
+        /* ===== RESPONSIVE ===== */
+        @media (max-width: 768px) {
+            .sidebar {
+                transform: translateX(-100%);
+            }
+
+            .sidebar.open { transform: translateX(0); }
+
+            .sidebar-overlay {
+                position: fixed;
+                inset: 0;
+                background: rgba(0,0,0,0.5);
+                z-index: 99;
+                display: none;
+            }
+
+            .sidebar-overlay.visible { display: block; }
+
+            .main { margin-left: 0; }
+
+            .hamburger { display: flex; }
+
+            .content { padding: 16px; }
+
+            .board-column {
+                min-width: 260px;
+                max-width: 260px;
+            }
+
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .projects-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .topbar { padding: 12px 16px; }
+            .topbar-title { font-size: 16px; }
+
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* ===== PROJECT COLOR PALETTE ===== */
+        .color-picker {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .color-swatch {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            cursor: pointer;
+            border: 2px solid transparent;
+            transition: all var(--transition);
+        }
+
+        .color-swatch:hover { transform: scale(1.1); }
+        .color-swatch.selected { border-color: white; box-shadow: 0 0 0 2px var(--orange); }
+
+        /* ===== DEADLINE STATUS ===== */
+        .deadline-ok { color: var(--text-muted); }
+        .deadline-soon { color: var(--yellow); }
+        .deadline-overdue { color: var(--red); }
+
+        /* ===== SEARCH ===== */
+        .search-box {
+            position: relative;
+        }
+
+        .search-box input {
+            background: var(--black);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: 7px 12px 7px 32px;
+            color: var(--text-primary);
+            font-size: 13px;
+            width: 200px;
+            transition: all var(--transition);
+        }
+
+        .search-box input:focus {
+            border-color: var(--orange);
+            width: 260px;
+        }
+
+        .search-box svg {
+            position: absolute;
+            left: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 14px;
+            height: 14px;
+            color: var(--text-muted);
+        }
+
+        /* ===== FILTER BAR ===== */
+        .filter-bar {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .filter-bar .btn.active {
+            background: var(--orange-dim);
+            color: var(--orange);
+        }
+
+        /* Quick-edit inline input */
+        .inline-edit {
+            background: var(--black);
+            border: 1px solid var(--orange);
+            border-radius: 4px;
+            color: var(--text-primary);
+            font-size: inherit;
+            font-weight: inherit;
+            font-family: var(--font);
+            padding: 2px 6px;
+            width: 100%;
+        }
+    </style>
+</head>
+<body>
+
+<!-- ===== APP SHELL ===== -->
+<div class="app">
+
+    <!-- Sidebar Overlay (mobile) -->
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <a href="../" class="sidebar-brand">
+                <div class="sidebar-brand-icon">R</div>
+                <div class="sidebar-brand-text">
+                    Reshuffle
+                    <span>Task Manager</span>
+                </div>
+            </a>
+        </div>
+        <nav class="sidebar-nav" id="sidebarNav">
+            <div class="sidebar-section-title">Navigation</div>
+            <div class="sidebar-item active" data-view="dashboard" onclick="switchView('dashboard')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+                Dashboard
+            </div>
+            <div class="sidebar-item" data-view="projects" onclick="switchView('projects')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
+                Projects
+                <span class="badge" id="projectCount">0</span>
+            </div>
+
+            <div class="sidebar-section-title" id="projectsListTitle" style="display:none">Client Projects</div>
+            <div id="sidebarProjectsList"></div>
+        </nav>
+        <div class="sidebar-footer">
+            <a href="../tools.html">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="15 18 9 12 15 6"/></svg>
+                Back to Tools
+            </a>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <div class="main">
+        <!-- Top Bar -->
+        <div class="topbar">
+            <div class="topbar-left">
+                <button class="hamburger" id="hamburgerBtn" onclick="toggleSidebar()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+                </button>
+                <div>
+                    <div class="topbar-title" id="topbarTitle">Dashboard</div>
+                    <div class="topbar-breadcrumb" id="topbarBreadcrumb"></div>
+                </div>
+            </div>
+            <div class="topbar-right">
+                <div class="search-box">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                    <input type="text" placeholder="Search tasks..." id="searchInput" oninput="handleSearch()">
+                </div>
+                <button class="btn btn-primary" id="topbarAction" onclick="handleTopbarAction()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    New Project
+                </button>
+            </div>
+        </div>
+
+        <!-- Content -->
+        <div class="content" id="contentArea"></div>
+    </div>
+</div>
+
+<!-- ===== MODAL ===== -->
+<div class="modal-overlay" id="modalOverlay">
+    <div class="modal" id="modalContent"></div>
+</div>
+
+<!-- ===== CONTEXT MENU ===== -->
+<div class="context-menu" id="contextMenu"></div>
+
+<!-- ===== TOASTS ===== -->
+<div class="toast-container" id="toastContainer"></div>
+
+<script>
+/* ============================================================
+   RESHUFFLE KANBAN TASK MANAGER — Client-Side Application
+   ============================================================ */
+
+// ===== DATA LAYER =====
+const STORAGE_KEY = 'reshuffle_kanban';
+const PROJECT_COLORS = ['#FF6B35','#34C759','#5AC8FA','#FFD60A','#BF5AF2','#FF453A','#FF9F0A','#30D158'];
+
+const COLUMNS = [
+    { id: 'backlog',    title: 'Backlog',          color: '#666666' },
+    { id: 'todo',       title: 'To Do',            color: '#FFD60A' },
+    { id: 'progress',   title: 'In Progress',      color: '#5AC8FA' },
+    { id: 'review',     title: 'Client Review',    color: '#BF5AF2' },
+    { id: 'revision',   title: 'Revision',         color: '#FF9F0A' },
+    { id: 'completed',  title: 'Completed',        color: '#34C759' },
+    { id: 'invoiced',   title: 'Invoiced',         color: '#FF6B35' }
+];
+
+function loadData() {
+    try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) return JSON.parse(raw);
+    } catch(e) {}
+    return { projects: [], tasks: [], nextProjectId: 1, nextTaskId: 1 };
+}
+
+function saveData() {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+}
+
+let state = loadData();
+let currentView = 'dashboard';
+let currentProjectId = null;
+let searchQuery = '';
+
+// ===== UTILITY =====
+function esc(str) {
+    const d = document.createElement('div');
+    d.textContent = str || '';
+    return d.innerHTML;
+}
+
+function escAttr(str) {
+    return esc(str).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+function uid() { return Date.now().toString(36) + Math.random().toString(36).substr(2, 5); }
+
+function formatDate(d) {
+    if (!d) return '';
+    const date = new Date(d);
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function formatCurrency(n) {
+    if (!n && n !== 0) return '';
+    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0 }).format(n);
+}
+
+function deadlineStatus(d) {
+    if (!d) return 'ok';
+    const now = new Date();
+    now.setHours(0,0,0,0);
+    const dl = new Date(d);
+    const diff = (dl - now) / (1000*60*60*24);
+    if (diff < 0) return 'overdue';
+    if (diff <= 3) return 'soon';
+    return 'ok';
+}
+
+function daysUntil(d) {
+    if (!d) return null;
+    const now = new Date();
+    now.setHours(0,0,0,0);
+    const dl = new Date(d);
+    const diff = Math.ceil((dl - now) / (1000*60*60*24));
+    return diff;
+}
+
+function getProject(id) { return state.projects.find(p => p.id === id); }
+function getProjectTasks(pid) { return state.tasks.filter(t => t.projectId === pid); }
+function getColumnTasks(pid, colId) {
+    return state.tasks
+        .filter(t => t.projectId === pid && t.status === colId)
+        .sort((a,b) => (a.order||0) - (b.order||0));
+}
+
+function getProjectProgress(pid) {
+    const tasks = getProjectTasks(pid);
+    if (!tasks.length) return 0;
+    const done = tasks.filter(t => t.status === 'completed' || t.status === 'invoiced').length;
+    return Math.round((done / tasks.length) * 100);
+}
+
+function getProjectBudgetUsed(pid) {
+    return getProjectTasks(pid).reduce((sum, t) => sum + (parseFloat(t.budget) || 0), 0);
+}
+
+// ===== VIEW SWITCHING =====
+function switchView(view, projectId) {
+    currentView = view;
+    currentProjectId = projectId || null;
+    searchQuery = '';
+    document.getElementById('searchInput').value = '';
+
+    // Update sidebar active state
+    document.querySelectorAll('.sidebar-item').forEach(item => {
+        item.classList.remove('active');
+        if (item.dataset.view === view && !projectId) item.classList.add('active');
+        if (item.dataset.projectId == projectId) item.classList.add('active');
+    });
+
+    // Update topbar
+    if (view === 'dashboard') {
+        document.getElementById('topbarTitle').textContent = 'Dashboard';
+        document.getElementById('topbarBreadcrumb').innerHTML = '';
+        document.getElementById('topbarAction').innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> New Project`;
+        document.getElementById('topbarAction').onclick = () => openProjectModal();
+    } else if (view === 'projects') {
+        document.getElementById('topbarTitle').textContent = 'Projects';
+        document.getElementById('topbarBreadcrumb').innerHTML = '';
+        document.getElementById('topbarAction').innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> New Project`;
+        document.getElementById('topbarAction').onclick = () => openProjectModal();
+    } else if (view === 'board') {
+        const proj = getProject(projectId);
+        document.getElementById('topbarTitle').textContent = proj ? esc(proj.name) : 'Board';
+        document.getElementById('topbarBreadcrumb').innerHTML = `<a href="#" onclick="switchView('projects');return false;">Projects</a> / ${proj ? esc(proj.name) : ''}`;
+        document.getElementById('topbarAction').innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Add Task`;
+        document.getElementById('topbarAction').onclick = () => openTaskModal(projectId);
+    }
+
+    render();
+    closeSidebar();
+}
+
+function handleTopbarAction() {
+    if (currentView === 'board' && currentProjectId) {
+        openTaskModal(currentProjectId);
+    } else {
+        openProjectModal();
+    }
+}
+
+// ===== RENDER =====
+function render() {
+    const area = document.getElementById('contentArea');
+    updateSidebar();
+
+    if (currentView === 'dashboard') renderDashboard(area);
+    else if (currentView === 'projects') renderProjects(area);
+    else if (currentView === 'board') renderBoard(area);
+}
+
+function updateSidebar() {
+    document.getElementById('projectCount').textContent = state.projects.length;
+
+    const list = document.getElementById('sidebarProjectsList');
+    const title = document.getElementById('projectsListTitle');
+
+    if (state.projects.length > 0) {
+        title.style.display = '';
+        list.innerHTML = state.projects.map(p => `
+            <div class="sidebar-item sidebar-project-item ${currentProjectId === p.id ? 'active' : ''}"
+                 data-view="board" data-project-id="${p.id}"
+                 onclick="switchView('board', ${p.id})">
+                <div class="sidebar-project-color" style="background:${p.color}"></div>
+                ${esc(p.name)}
+                <span class="badge">${getProjectTasks(p.id).length}</span>
+            </div>
+        `).join('');
+    } else {
+        title.style.display = 'none';
+        list.innerHTML = '';
+    }
+}
+
+// ===== DASHBOARD =====
+function renderDashboard(area) {
+    const totalProjects = state.projects.length;
+    const totalTasks = state.tasks.length;
+    const activeTasks = state.tasks.filter(t => t.status !== 'completed' && t.status !== 'invoiced').length;
+    const completedTasks = state.tasks.filter(t => t.status === 'completed' || t.status === 'invoiced').length;
+    const totalBudget = state.projects.reduce((sum, p) => sum + (parseFloat(p.budget) || 0), 0);
+    const invoicedBudget = state.tasks.filter(t => t.status === 'invoiced').reduce((s,t) => s + (parseFloat(t.budget)||0), 0);
+    const overdueTasks = state.tasks.filter(t => {
+        if (t.status === 'completed' || t.status === 'invoiced') return false;
+        return deadlineStatus(t.deadline) === 'overdue';
+    }).length;
+
+    let html = `
+        <div class="stats-grid">
+            <div class="stat-card stat-orange">
+                <div class="stat-card-label">Active Projects</div>
+                <div class="stat-card-value">${totalProjects}</div>
+                <div class="stat-card-sub">${totalTasks} total tasks</div>
+            </div>
+            <div class="stat-card stat-blue">
+                <div class="stat-card-label">In Progress</div>
+                <div class="stat-card-value">${activeTasks}</div>
+                <div class="stat-card-sub">${overdueTasks > 0 ? `<span style="color:var(--red)">${overdueTasks} overdue</span>` : 'On track'}</div>
+            </div>
+            <div class="stat-card stat-green">
+                <div class="stat-card-label">Completed</div>
+                <div class="stat-card-value">${completedTasks}</div>
+                <div class="stat-card-sub">${totalTasks > 0 ? Math.round(completedTasks/totalTasks*100) : 0}% completion rate</div>
+            </div>
+            <div class="stat-card stat-yellow">
+                <div class="stat-card-label">Total Revenue</div>
+                <div class="stat-card-value">${formatCurrency(totalBudget)}</div>
+                <div class="stat-card-sub">${formatCurrency(invoicedBudget)} invoiced</div>
+            </div>
+        </div>
+    `;
+
+    // Recent activity / upcoming deadlines
+    const upcomingTasks = state.tasks
+        .filter(t => t.deadline && t.status !== 'completed' && t.status !== 'invoiced')
+        .sort((a,b) => new Date(a.deadline) - new Date(b.deadline))
+        .slice(0, 8);
+
+    if (state.projects.length === 0) {
+        html += `
+            <div class="empty-state">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
+                <h3>Welcome to your Task Manager</h3>
+                <p>Create your first client project to get started with freelance workflow management.</p>
+                <button class="btn btn-primary" onclick="openProjectModal()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    Create First Project
+                </button>
+            </div>
+        `;
+    } else {
+        html += `<h3 style="font-size:15px;font-weight:600;margin-bottom:16px;">Your Projects</h3>`;
+        html += `<div class="projects-grid">`;
+        state.projects.forEach(p => {
+            html += renderProjectCard(p);
+        });
+        html += `</div>`;
+
+        if (upcomingTasks.length > 0) {
+            html += `<h3 style="font-size:15px;font-weight:600;margin:28px 0 16px;">Upcoming Deadlines</h3>`;
+            html += `<div style="display:flex;flex-direction:column;gap:8px;">`;
+            upcomingTasks.forEach(t => {
+                const proj = getProject(t.projectId);
+                const ds = deadlineStatus(t.deadline);
+                const days = daysUntil(t.deadline);
+                let dayLabel = '';
+                if (days < 0) dayLabel = `${Math.abs(days)}d overdue`;
+                else if (days === 0) dayLabel = 'Due today';
+                else if (days === 1) dayLabel = 'Due tomorrow';
+                else dayLabel = `${days}d left`;
+
+                html += `
+                    <div style="background:var(--black-card);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px 16px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;transition:background 0.2s" 
+                         onmouseover="this.style.background='var(--black-hover)'" onmouseout="this.style.background='var(--black-card)'"
+                         onclick="switchView('board', ${t.projectId})">
+                        <div style="display:flex;align-items:center;gap:10px;">
+                            <div style="width:8px;height:8px;border-radius:50%;background:${proj ? proj.color : '#666'}"></div>
+                            <div>
+                                <div style="font-size:13px;font-weight:500;">${esc(t.name)}</div>
+                                <div style="font-size:11px;color:var(--text-muted);">${proj ? esc(proj.name) : ''}</div>
+                            </div>
+                        </div>
+                        <div class="deadline-${ds}" style="font-size:12px;font-weight:500;">${dayLabel}</div>
+                    </div>
+                `;
+            });
+            html += `</div>`;
+        }
+    }
+
+    area.innerHTML = html;
+}
+
+function renderProjectCard(p) {
+    const tasks = getProjectTasks(p.id);
+    const progress = getProjectProgress(p.id);
+    const completedCount = tasks.filter(t => t.status === 'completed' || t.status === 'invoiced').length;
+    const budgetUsed = getProjectBudgetUsed(p.id);
+    const dl = deadlineStatus(p.deadline);
+
+    return `
+        <div class="project-card" onclick="switchView('board', ${p.id})">
+            <div class="project-card-actions">
+                <button class="btn btn-ghost btn-icon btn-sm" onclick="event.stopPropagation();showProjectMenu(event, ${p.id})">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg>
+                </button>
+            </div>
+            <div class="project-card-header">
+                <div>
+                    <div class="project-card-title">${esc(p.name)}</div>
+                    <div class="project-card-client">${p.clientName ? esc(p.clientName) : 'No client'}</div>
+                </div>
+                <div class="project-card-color" style="background:${p.color}"></div>
+            </div>
+            ${p.description ? `<div class="project-card-desc">${esc(p.description)}</div>` : ''}
+            <div class="project-card-meta">
+                ${p.deadline ? `<div class="project-card-meta-item">Deadline<strong class="deadline-${dl}">${formatDate(p.deadline)}</strong></div>` : ''}
+                ${p.budget ? `<div class="project-card-meta-item">Budget<strong>${formatCurrency(p.budget)}</strong></div>` : ''}
+            </div>
+            <div class="project-card-progress">
+                <div class="progress-bar-bg">
+                    <div class="progress-bar-fill ${progress === 100 ? 'complete' : ''}" style="width:${progress}%"></div>
+                </div>
+            </div>
+            <div class="project-card-footer">
+                <div class="project-card-tasks">${completedCount}/${tasks.length} tasks</div>
+                ${p.budget ? `<div class="project-card-budget">${formatCurrency(budgetUsed)} / ${formatCurrency(p.budget)}</div>` : ''}
+            </div>
+        </div>
+    `;
+}
+
+// ===== PROJECTS VIEW =====
+function renderProjects(area) {
+    if (state.projects.length === 0) {
+        area.innerHTML = `
+            <div class="empty-state">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
+                <h3>No projects yet</h3>
+                <p>Create your first client project to organize your freelance work.</p>
+                <button class="btn btn-primary" onclick="openProjectModal()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    New Project
+                </button>
+            </div>
+        `;
+        return;
+    }
+
+    let html = `<div class="projects-grid">`;
+    state.projects.forEach(p => {
+        html += renderProjectCard(p);
+    });
+    html += `
+        <div class="project-card project-card-new" onclick="openProjectModal()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            <div style="font-size:14px;font-weight:500;">New Project</div>
+        </div>
+    `;
+    html += `</div>`;
+    area.innerHTML = html;
+}
+
+// ===== KANBAN BOARD =====
+function renderBoard(area) {
+    const proj = getProject(currentProjectId);
+    if (!proj) { switchView('projects'); return; }
+
+    let html = '';
+
+    // Project info bar
+    const progress = getProjectProgress(proj.id);
+    const tasks = getProjectTasks(proj.id);
+    const budgetUsed = getProjectBudgetUsed(proj.id);
+
+    html += `
+        <div style="display:flex;gap:16px;margin-bottom:16px;flex-wrap:wrap;align-items:center;">
+            <div style="display:flex;align-items:center;gap:8px;">
+                <div style="width:10px;height:10px;border-radius:50%;background:${proj.color}"></div>
+                ${proj.clientName ? `<span style="font-size:13px;color:var(--text-secondary);">Client: <strong>${esc(proj.clientName)}</strong></span>` : ''}
+            </div>
+            ${proj.budget ? `<span style="font-size:13px;color:var(--text-secondary);">Budget: <strong style="color:var(--green)">${formatCurrency(budgetUsed)}</strong> / ${formatCurrency(proj.budget)}</span>` : ''}
+            ${proj.deadline ? `<span class="deadline-${deadlineStatus(proj.deadline)}" style="font-size:13px;">Deadline: <strong>${formatDate(proj.deadline)}</strong></span>` : ''}
+            <span style="font-size:13px;color:var(--text-secondary);">${progress}% complete</span>
+            <div style="flex:1"></div>
+            <button class="btn btn-ghost btn-sm" onclick="showProjectMenu(event, ${proj.id})">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg>
+                Options
+            </button>
+        </div>
+    `;
+
+    html += `<div class="board" id="kanbanBoard">`;
+
+    COLUMNS.forEach(col => {
+        const colTasks = getColumnTasks(proj.id, col.id)
+            .filter(t => !searchQuery || t.name.toLowerCase().includes(searchQuery) || (t.description||'').toLowerCase().includes(searchQuery));
+
+        html += `
+            <div class="board-column" data-column="${col.id}">
+                <div class="column-header">
+                    <div class="column-header-left">
+                        <div class="column-dot" style="background:${col.color}"></div>
+                        <span class="column-title">${col.title}</span>
+                        <span class="column-count">${colTasks.length}</span>
+                    </div>
+                    <button class="column-add-btn" onclick="openTaskModal(${proj.id}, '${col.id}')" title="Add task to ${col.title}">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    </button>
+                </div>
+                <div class="column-body" data-column="${col.id}"
+                     ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event)">
+        `;
+
+        colTasks.forEach(t => {
+            html += renderTaskCard(t);
+        });
+
+        html += `</div></div>`;
+    });
+
+    html += `</div>`;
+    area.innerHTML = html;
+}
+
+function renderTaskCard(t) {
+    const ds = deadlineStatus(t.deadline);
+    const days = daysUntil(t.deadline);
+    let dayLabel = '';
+    if (days !== null) {
+        if (days < 0) dayLabel = `${Math.abs(days)}d overdue`;
+        else if (days === 0) dayLabel = 'Today';
+        else if (days === 1) dayLabel = 'Tomorrow';
+        else dayLabel = `${days}d`;
+    }
+
+    const priorityTag = t.priority && t.priority !== 'none'
+        ? `<span class="tag tag-${t.priority}">${t.priority.charAt(0).toUpperCase() + t.priority.slice(1)}</span>`
+        : '';
+
+    return `
+        <div class="task-card" draggable="true" data-task-id="${t.id}"
+             ondragstart="handleDragStart(event)" ondragend="handleDragEnd(event)"
+             onclick="openTaskDetail(${t.id})" oncontextmenu="showTaskMenu(event, ${t.id})">
+            <div class="task-card-title">${esc(t.name)}</div>
+            ${t.description ? `<div class="task-card-desc">${esc(t.description)}</div>` : ''}
+            <div class="task-card-footer">
+                <div class="task-card-tags">
+                    ${priorityTag}
+                    ${t.budget ? `<span class="task-card-budget">${formatCurrency(t.budget)}</span>` : ''}
+                </div>
+                ${t.deadline ? `
+                    <div class="task-card-deadline ${ds === 'overdue' ? 'overdue' : ''}">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                        ${dayLabel}
+                    </div>
+                ` : ''}
+            </div>
+        </div>
+    `;
+}
+
+// ===== DRAG & DROP =====
+let draggedTaskId = null;
+
+function handleDragStart(e) {
+    draggedTaskId = parseInt(e.target.dataset.taskId);
+    e.target.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', draggedTaskId);
+}
+
+function handleDragEnd(e) {
+    e.target.classList.remove('dragging');
+    document.querySelectorAll('.column-body').forEach(cb => cb.classList.remove('drag-over'));
+    draggedTaskId = null;
+}
+
+function handleDragOver(e) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    e.currentTarget.classList.add('drag-over');
+}
+
+function handleDragLeave(e) {
+    e.currentTarget.classList.remove('drag-over');
+}
+
+function handleDrop(e) {
+    e.preventDefault();
+    e.currentTarget.classList.remove('drag-over');
+
+    const taskId = parseInt(e.dataTransfer.getData('text/plain'));
+    const newStatus = e.currentTarget.dataset.column;
+
+    const task = state.tasks.find(t => t.id === taskId);
+    if (task && task.status !== newStatus) {
+        task.status = newStatus;
+        // Set order to end of column
+        const maxOrder = getColumnTasks(task.projectId, newStatus).reduce((max, t) => Math.max(max, t.order || 0), 0);
+        task.order = maxOrder + 1;
+        saveData();
+        render();
+        toast(`Moved to ${COLUMNS.find(c => c.id === newStatus)?.title}`, 'success');
+    }
+}
+
+// ===== MODALS =====
+function openModal(html) {
+    document.getElementById('modalContent').innerHTML = html;
+    document.getElementById('modalOverlay').classList.add('visible');
+}
+
+function closeModal() {
+    document.getElementById('modalOverlay').classList.remove('visible');
+}
+
+document.getElementById('modalOverlay').addEventListener('click', (e) => {
+    if (e.target === e.currentTarget) closeModal();
+});
+
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+        closeModal();
+        hideContextMenu();
+    }
+});
+
+// ===== PROJECT MODAL =====
+function openProjectModal(editId) {
+    const proj = editId ? getProject(editId) : null;
+
+    const colorSwatches = PROJECT_COLORS.map(c =>
+        `<div class="color-swatch ${(!proj && c === '#FF6B35') || (proj && proj.color === c) ? 'selected' : ''}"
+              style="background:${c}" data-color="${c}"
+              onclick="document.querySelectorAll('.color-swatch').forEach(s=>s.classList.remove('selected'));this.classList.add('selected')"></div>`
+    ).join('');
+
+    openModal(`
+        <div class="modal-header">
+            <div class="modal-title">${proj ? 'Edit Project' : 'New Client Project'}</div>
+            <button class="modal-close" onclick="closeModal()">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label class="form-label">Project Name *</label>
+                <input class="form-input" id="projName" value="${proj ? escAttr(proj.name) : ''}" placeholder="e.g. Website Redesign" autofocus>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label">Client Name</label>
+                    <input class="form-input" id="projClient" value="${proj ? escAttr(proj.clientName || '') : ''}" placeholder="e.g. Acme Corp">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Client Email</label>
+                    <input class="form-input" id="projClientEmail" type="email" value="${proj ? escAttr(proj.clientEmail || '') : ''}" placeholder="client@example.com">
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label">Budget (USD)</label>
+                    <input class="form-input" id="projBudget" type="number" min="0" value="${proj ? (proj.budget||'') : ''}" placeholder="5000">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Deadline</label>
+                    <input class="form-input" id="projDeadline" type="date" value="${proj ? (proj.deadline||'') : ''}">
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Description</label>
+                <textarea class="form-textarea" id="projDesc" placeholder="Brief project description...">${proj ? esc(proj.description || '') : ''}</textarea>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Color</label>
+                <div class="color-picker">${colorSwatches}</div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+            <button class="btn btn-primary" onclick="saveProject(${editId || 'null'})">${proj ? 'Save Changes' : 'Create Project'}</button>
+        </div>
+    `);
+
+    setTimeout(() => document.getElementById('projName')?.focus(), 100);
+}
+
+function saveProject(editId) {
+    const name = document.getElementById('projName').value.trim();
+    if (!name) { toast('Please enter a project name', 'error'); return; }
+
+    const color = document.querySelector('.color-swatch.selected')?.dataset.color || '#FF6B35';
+    const data = {
+        name,
+        clientName: document.getElementById('projClient').value.trim(),
+        clientEmail: document.getElementById('projClientEmail').value.trim(),
+        budget: parseFloat(document.getElementById('projBudget').value) || 0,
+        deadline: document.getElementById('projDeadline').value || '',
+        description: document.getElementById('projDesc').value.trim(),
+        color
+    };
+
+    if (editId) {
+        const proj = getProject(editId);
+        if (proj) Object.assign(proj, data);
+        toast('Project updated', 'success');
+    } else {
+        const proj = { ...data, id: state.nextProjectId++, createdAt: new Date().toISOString() };
+        state.projects.push(proj);
+        toast('Project created', 'success');
+        closeModal();
+        saveData();
+        switchView('board', proj.id);
+        return;
+    }
+
+    closeModal();
+    saveData();
+    render();
+}
+
+// ===== TASK MODAL =====
+function openTaskModal(projectId, defaultStatus, editTaskId) {
+    const task = editTaskId ? state.tasks.find(t => t.id === editTaskId) : null;
+
+    const statusOptions = COLUMNS.map(c =>
+        `<option value="${c.id}" ${(task ? task.status : (defaultStatus || 'backlog')) === c.id ? 'selected' : ''}>${c.title}</option>`
+    ).join('');
+
+    const priorityOptions = ['none','low','medium','high','urgent'].map(p =>
+        `<option value="${p}" ${(task ? (task.priority || 'none') : 'none') === p ? 'selected' : ''}>${p === 'none' ? 'No Priority' : p.charAt(0).toUpperCase() + p.slice(1)}</option>`
+    ).join('');
+
+    openModal(`
+        <div class="modal-header">
+            <div class="modal-title">${task ? 'Edit Task' : 'New Task'}</div>
+            <button class="modal-close" onclick="closeModal()">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label class="form-label">Task Name *</label>
+                <input class="form-input" id="taskName" value="${task ? escAttr(task.name) : ''}" placeholder="e.g. Design homepage mockup" autofocus>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Description</label>
+                <textarea class="form-textarea" id="taskDesc" placeholder="Details about this task...">${task ? esc(task.description || '') : ''}</textarea>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label">Status</label>
+                    <select class="form-select" id="taskStatus">${statusOptions}</select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Priority</label>
+                    <select class="form-select" id="taskPriority">${priorityOptions}</select>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label">Deadline</label>
+                    <input class="form-input" id="taskDeadline" type="date" value="${task ? (task.deadline || '') : ''}">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Budget Allocation (USD)</label>
+                    <input class="form-input" id="taskBudget" type="number" min="0" value="${task ? (task.budget || '') : ''}" placeholder="0">
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            ${task ? `<button class="btn btn-danger" onclick="deleteTask(${task.id})" style="margin-right:auto">Delete</button>` : ''}
+            <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+            <button class="btn btn-primary" onclick="saveTask(${projectId}, ${editTaskId || 'null'})">${task ? 'Save' : 'Create Task'}</button>
+        </div>
+    `);
+
+    setTimeout(() => document.getElementById('taskName')?.focus(), 100);
+}
+
+function saveTask(projectId, editId) {
+    const name = document.getElementById('taskName').value.trim();
+    if (!name) { toast('Please enter a task name', 'error'); return; }
+
+    const data = {
+        name,
+        description: document.getElementById('taskDesc').value.trim(),
+        status: document.getElementById('taskStatus').value,
+        priority: document.getElementById('taskPriority').value,
+        deadline: document.getElementById('taskDeadline').value || '',
+        budget: parseFloat(document.getElementById('taskBudget').value) || 0
+    };
+
+    if (editId) {
+        const task = state.tasks.find(t => t.id === editId);
+        if (task) Object.assign(task, data);
+        toast('Task updated', 'success');
+    } else {
+        const maxOrder = getColumnTasks(projectId, data.status).reduce((max, t) => Math.max(max, t.order || 0), 0);
+        const task = {
+            ...data,
+            id: state.nextTaskId++,
+            projectId,
+            order: maxOrder + 1,
+            createdAt: new Date().toISOString()
+        };
+        state.tasks.push(task);
+        toast('Task created', 'success');
+    }
+
+    closeModal();
+    saveData();
+    render();
+}
+
+function deleteTask(taskId) {
+    state.tasks = state.tasks.filter(t => t.id !== taskId);
+    closeModal();
+    saveData();
+    render();
+    toast('Task deleted', 'success');
+}
+
+// ===== TASK DETAIL VIEW =====
+function openTaskDetail(taskId) {
+    const task = state.tasks.find(t => t.id === taskId);
+    if (!task) return;
+
+    const proj = getProject(task.projectId);
+    const col = COLUMNS.find(c => c.id === task.status);
+    const ds = deadlineStatus(task.deadline);
+
+    openModal(`
+        <div class="modal-header">
+            <div class="modal-title" style="display:flex;align-items:center;gap:8px;">
+                <div style="width:8px;height:8px;border-radius:50%;background:${col?.color || '#666'}"></div>
+                ${esc(task.name)}
+            </div>
+            <button class="modal-close" onclick="closeModal()">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+        </div>
+        <div class="modal-body">
+            <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
+                <span style="font-size:12px;padding:4px 10px;border-radius:4px;background:${col?.color || '#666'}22;color:${col?.color || '#666'}">${col?.title || 'Unknown'}</span>
+                ${task.priority && task.priority !== 'none' ? `<span class="tag tag-${task.priority}">${task.priority.charAt(0).toUpperCase() + task.priority.slice(1)} Priority</span>` : ''}
+            </div>
+
+            ${task.description ? `<div style="font-size:14px;color:var(--text-secondary);line-height:1.6;margin-bottom:20px;">${esc(task.description)}</div>` : ''}
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+                <div>
+                    <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;margin-bottom:4px;">Project</div>
+                    <div style="font-size:13px;">${proj ? esc(proj.name) : '—'}</div>
+                </div>
+                <div>
+                    <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;margin-bottom:4px;">Budget</div>
+                    <div style="font-size:13px;color:var(--green);">${task.budget ? formatCurrency(task.budget) : '—'}</div>
+                </div>
+                <div>
+                    <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;margin-bottom:4px;">Deadline</div>
+                    <div class="deadline-${ds}" style="font-size:13px;">${task.deadline ? formatDate(task.deadline) : '—'}</div>
+                </div>
+                <div>
+                    <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;margin-bottom:4px;">Created</div>
+                    <div style="font-size:13px;">${task.createdAt ? formatDate(task.createdAt) : '—'}</div>
+                </div>
+            </div>
+
+            <!-- Quick status change -->
+            <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border);">
+                <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;margin-bottom:8px;">Move to</div>
+                <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                    ${COLUMNS.filter(c => c.id !== task.status).map(c => `
+                        <button class="btn btn-sm btn-secondary" onclick="moveTask(${task.id}, '${c.id}')" style="font-size:11px;">
+                            <div style="width:6px;height:6px;border-radius:50%;background:${c.color}"></div>
+                            ${c.title}
+                        </button>
+                    `).join('')}
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-danger" onclick="deleteTask(${task.id})">Delete</button>
+            <button class="btn btn-secondary" onclick="closeModal()">Close</button>
+            <button class="btn btn-primary" onclick="closeModal();openTaskModal(${task.projectId}, null, ${task.id})">Edit</button>
+        </div>
+    `);
+}
+
+function moveTask(taskId, newStatus) {
+    const task = state.tasks.find(t => t.id === taskId);
+    if (!task) return;
+    task.status = newStatus;
+    const maxOrder = getColumnTasks(task.projectId, newStatus).reduce((max, t) => Math.max(max, t.order || 0), 0);
+    task.order = maxOrder + 1;
+    saveData();
+    closeModal();
+    render();
+    toast(`Moved to ${COLUMNS.find(c => c.id === newStatus)?.title}`, 'success');
+}
+
+// ===== CONTEXT MENUS =====
+function showProjectMenu(e, projectId) {
+    e.preventDefault();
+    e.stopPropagation();
+    const menu = document.getElementById('contextMenu');
+    menu.innerHTML = `
+        <div class="context-menu-item" onclick="hideContextMenu();openProjectModal(${projectId})">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            Edit Project
+        </div>
+        <div class="context-menu-item" onclick="hideContextMenu();duplicateProject(${projectId})">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+            Duplicate
+        </div>
+        <div class="context-menu-item" onclick="hideContextMenu();exportProject(${projectId})">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Export Summary
+        </div>
+        <div class="context-menu-divider"></div>
+        <div class="context-menu-item danger" onclick="hideContextMenu();confirmDeleteProject(${projectId})">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+            Delete Project
+        </div>
+    `;
+
+    const rect = e.target.getBoundingClientRect ? e.target.getBoundingClientRect() : { left: e.clientX, top: e.clientY };
+    menu.style.left = Math.min(e.clientX, window.innerWidth - 180) + 'px';
+    menu.style.top = Math.min(e.clientY, window.innerHeight - 200) + 'px';
+    menu.classList.add('visible');
+}
+
+function showTaskMenu(e, taskId) {
+    e.preventDefault();
+    e.stopPropagation();
+    const task = state.tasks.find(t => t.id === taskId);
+    if (!task) return;
+
+    const menu = document.getElementById('contextMenu');
+    menu.innerHTML = `
+        <div class="context-menu-item" onclick="hideContextMenu();openTaskModal(${task.projectId}, null, ${taskId})">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            Edit Task
+        </div>
+        <div class="context-menu-divider"></div>
+        ${COLUMNS.filter(c => c.id !== task.status).map(c => `
+            <div class="context-menu-item" onclick="hideContextMenu();moveTask(${taskId}, '${c.id}')">
+                <div style="width:8px;height:8px;border-radius:50%;background:${c.color}"></div>
+                Move to ${c.title}
+            </div>
+        `).join('')}
+        <div class="context-menu-divider"></div>
+        <div class="context-menu-item danger" onclick="hideContextMenu();deleteTask(${taskId})">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+            Delete Task
+        </div>
+    `;
+
+    menu.style.left = Math.min(e.clientX, window.innerWidth - 180) + 'px';
+    menu.style.top = Math.min(e.clientY, window.innerHeight - 250) + 'px';
+    menu.classList.add('visible');
+}
+
+function hideContextMenu() {
+    document.getElementById('contextMenu').classList.remove('visible');
+}
+
+document.addEventListener('click', (e) => {
+    if (!e.target.closest('.context-menu')) hideContextMenu();
+});
+
+// ===== PROJECT ACTIONS =====
+function confirmDeleteProject(projectId) {
+    const proj = getProject(projectId);
+    if (!proj) return;
+    const taskCount = getProjectTasks(projectId).length;
+
+    openModal(`
+        <div class="modal-header">
+            <div class="modal-title">Delete Project</div>
+            <button class="modal-close" onclick="closeModal()">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+        </div>
+        <div class="confirm-body">
+            <p>Delete <strong>${esc(proj.name)}</strong> and all ${taskCount} tasks? This cannot be undone.</p>
+            <div class="btn-row">
+                <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+                <button class="btn btn-danger" onclick="deleteProject(${projectId})">Delete Project</button>
+            </div>
+        </div>
+    `);
+}
+
+function deleteProject(projectId) {
+    state.projects = state.projects.filter(p => p.id !== projectId);
+    state.tasks = state.tasks.filter(t => t.projectId !== projectId);
+    closeModal();
+    saveData();
+    switchView('dashboard');
+    toast('Project deleted', 'success');
+}
+
+function duplicateProject(projectId) {
+    const proj = getProject(projectId);
+    if (!proj) return;
+
+    const newProj = {
+        ...JSON.parse(JSON.stringify(proj)),
+        id: state.nextProjectId++,
+        name: proj.name + ' (Copy)',
+        createdAt: new Date().toISOString()
+    };
+    state.projects.push(newProj);
+
+    // Duplicate tasks
+    const tasks = getProjectTasks(projectId);
+    tasks.forEach(t => {
+        const newTask = {
+            ...JSON.parse(JSON.stringify(t)),
+            id: state.nextTaskId++,
+            projectId: newProj.id,
+            createdAt: new Date().toISOString()
+        };
+        state.tasks.push(newTask);
+    });
+
+    saveData();
+    render();
+    toast('Project duplicated', 'success');
+}
+
+function exportProject(projectId) {
+    const proj = getProject(projectId);
+    if (!proj) return;
+    const tasks = getProjectTasks(projectId);
+    const progress = getProjectProgress(projectId);
+    const budgetUsed = getProjectBudgetUsed(projectId);
+
+    let text = `PROJECT SUMMARY: ${proj.name}\n`;
+    text += `${'='.repeat(50)}\n\n`;
+    text += `Client: ${proj.clientName || '—'}\n`;
+    text += `Email: ${proj.clientEmail || '—'}\n`;
+    text += `Budget: ${formatCurrency(proj.budget)} (${formatCurrency(budgetUsed)} allocated)\n`;
+    text += `Deadline: ${proj.deadline ? formatDate(proj.deadline) : '—'}\n`;
+    text += `Progress: ${progress}%\n`;
+    text += `Description: ${proj.description || '—'}\n\n`;
+
+    COLUMNS.forEach(col => {
+        const colTasks = tasks.filter(t => t.status === col.id);
+        if (colTasks.length === 0) return;
+        text += `\n${col.title.toUpperCase()} (${colTasks.length})\n`;
+        text += `${'-'.repeat(30)}\n`;
+        colTasks.forEach(t => {
+            text += `  • ${t.name}`;
+            if (t.deadline) text += ` [Due: ${formatDate(t.deadline)}]`;
+            if (t.budget) text += ` [${formatCurrency(t.budget)}]`;
+            if (t.priority && t.priority !== 'none') text += ` [${t.priority}]`;
+            text += '\n';
+            if (t.description) text += `    ${t.description}\n`;
+        });
+    });
+
+    text += `\n${'='.repeat(50)}\n`;
+    text += `Generated by Reshuffle Task Manager\n`;
+    text += `Date: ${new Date().toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' })}\n`;
+
+    const blob = new Blob([text], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${proj.name.replace(/[^a-zA-Z0-9]/g, '_')}_summary.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast('Summary exported', 'success');
+}
+
+// ===== SEARCH =====
+function handleSearch() {
+    searchQuery = document.getElementById('searchInput').value.toLowerCase().trim();
+    if (currentView === 'board') render();
+}
+
+// ===== SIDEBAR (MOBILE) =====
+function toggleSidebar() {
+    document.getElementById('sidebar').classList.toggle('open');
+    document.getElementById('sidebarOverlay').classList.toggle('visible');
+}
+
+function closeSidebar() {
+    document.getElementById('sidebar').classList.remove('open');
+    document.getElementById('sidebarOverlay').classList.remove('visible');
+}
+
+document.getElementById('sidebarOverlay').addEventListener('click', closeSidebar);
+
+// ===== TOAST =====
+function toast(msg, type = 'success') {
+    const container = document.getElementById('toastContainer');
+    const el = document.createElement('div');
+    el.className = `toast ${type}`;
+    el.textContent = msg;
+    container.appendChild(el);
+    setTimeout(() => { el.remove(); }, 3000);
+}
+
+// ===== KEYBOARD SHORTCUTS =====
+document.addEventListener('keydown', (e) => {
+    // Ctrl/Cmd + N = New
+    if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
+        e.preventDefault();
+        if (currentView === 'board' && currentProjectId) openTaskModal(currentProjectId);
+        else openProjectModal();
+    }
+});
+
+// ===== SEED DATA (for first visit) =====
+function seedDemoData() {
+    if (state.projects.length > 0) return;
+
+    // Add a sample project
+    const proj = {
+        id: state.nextProjectId++,
+        name: 'Website Redesign',
+        clientName: 'Acme Corp',
+        clientEmail: 'hello@acme.com',
+        budget: 5000,
+        deadline: (() => { const d = new Date(); d.setDate(d.getDate() + 30); return d.toISOString().split('T')[0]; })(),
+        description: 'Complete redesign of the Acme Corp corporate website with modern UI and improved UX.',
+        color: '#FF6B35',
+        createdAt: new Date().toISOString()
+    };
+    state.projects.push(proj);
+
+    const sampleTasks = [
+        { name: 'Gather client requirements', status: 'completed', priority: 'high', budget: 200, desc: 'Initial meeting to understand needs and goals.', daysOffset: -5 },
+        { name: 'Create wireframes', status: 'completed', priority: 'high', budget: 500, desc: 'Low-fidelity wireframes for all pages.', daysOffset: -2 },
+        { name: 'Design homepage mockup', status: 'review', priority: 'high', budget: 800, desc: 'High-fidelity design for the homepage.', daysOffset: 3 },
+        { name: 'Design inner pages', status: 'progress', priority: 'medium', budget: 600, desc: 'About, Services, Contact page designs.', daysOffset: 7 },
+        { name: 'Set up development environment', status: 'todo', priority: 'medium', budget: 0, desc: '', daysOffset: 10 },
+        { name: 'Develop responsive frontend', status: 'backlog', priority: 'medium', budget: 1200, desc: 'HTML/CSS/JS implementation of approved designs.', daysOffset: 18 },
+        { name: 'CMS integration', status: 'backlog', priority: 'low', budget: 800, desc: 'Connect to headless CMS for content management.', daysOffset: 22 },
+        { name: 'QA testing & launch', status: 'backlog', priority: 'low', budget: 400, desc: 'Cross-browser testing and deployment.', daysOffset: 28 }
+    ];
+
+    sampleTasks.forEach((t, i) => {
+        const dl = new Date();
+        dl.setDate(dl.getDate() + t.daysOffset);
+        state.tasks.push({
+            id: state.nextTaskId++,
+            projectId: proj.id,
+            name: t.name,
+            description: t.desc,
+            status: t.status,
+            priority: t.priority,
+            budget: t.budget,
+            deadline: dl.toISOString().split('T')[0],
+            order: i + 1,
+            createdAt: new Date().toISOString()
+        });
+    });
+
+    saveData();
+}
+
+// ===== INIT =====
+seedDemoData();
+render();
+</script>
+
+</body>
+</html>
